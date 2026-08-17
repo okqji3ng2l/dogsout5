@@ -1,0 +1,16 @@
+langchain>=0.3
+langchain-community>=0.3
+langchain-google-genai>=2.1
+pillow>=10.0
+python-dotenv>=1.0
+scikit-learn>=1.4
+numpy>=1.26
+matplotlib>=3.8
+fastapi>=0.110
+uvicorn>=0.29
+python-multipart>=0.0.9
+langchain-ollama>=1.0
+# DuckDuckGo 搜尋工具（DuckDuckGoSearchRun）的搜尋後端
+duckduckgo-search>=6.0
+ddgs>=9.0
+# 本地模型需另外下載：ollama pull qwen3:8b

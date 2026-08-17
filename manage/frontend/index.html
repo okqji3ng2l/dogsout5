@@ -1,0 +1,1680 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DogsOut 管理面板</title>
+<style>
+  :root {
+    --surface-page: #f6f7f9;
+    --surface-card: #ffffff;
+    --surface-sunken: #fafbfc;
+    --surface-hover: #f3f6fb;
+    --border-subtle: #e6e8ec;
+    --text-primary: #17181c;
+    --text-secondary: #5b6472;
+    --text-tertiary: #8b93a1;
+    --text-muted: #c0c6d0;
+    --accent: #2f6fed;
+    --accent-soft: #e9f0fe;
+    --danger: #e5484d;
+    --success: #22a06b;
+    --warning: #e8960c;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --shadow-xs: 0 1px 2px rgba(20, 24, 34, 0.05);
+    --shadow-btn: 0 2px 8px rgba(20, 24, 34, 0.10);
+    --font-sans: "Segoe UI", "Noto Sans TC", -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--surface-page);
+    color: var(--text-primary);
+    display: flex;
+  }
+
+  /* ── 左側直向工具列（圓形按鈕）───────────────────── */
+  .sidebar {
+    width: 72px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding: 14px 0;
+  }
+  .sidebar-pill {
+    margin-left: 14px;
+    background: var(--surface-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 999px;
+    padding: 10px 7px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    box-shadow: var(--shadow-btn);
+  }
+  .nav-btn {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    border: none;
+    background: var(--surface-card);
+    box-shadow: var(--shadow-btn);
+    color: var(--text-secondary);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: transform .12s ease, background .12s ease, color .12s ease;
+  }
+  .nav-btn:hover { transform: translateY(-1px); color: var(--text-primary); }
+  .nav-btn.active { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 1.5px var(--accent); }
+  .nav-btn[disabled] { cursor: default; opacity: .55; }
+  .nav-btn .tip {
+    position: absolute; left: 54px; top: 50%; transform: translateY(-50%);
+    background: #23262d; color: #fff; font-size: 12px; padding: 4px 10px;
+    border-radius: 6px; white-space: nowrap; opacity: 0; pointer-events: none;
+    transition: opacity .12s ease; z-index: 30;
+  }
+  .nav-btn:hover .tip { opacity: 1; }
+  .nav-sep { width: 26px; height: 1px; background: var(--border-subtle); }
+
+  /* ── 主內容 ─────────────────────────────────────── */
+  .main { flex: 1; overflow: auto; padding: 28px 32px; min-width: 0; }
+  .view { display: none; max-width: 1100px; }
+  .view.active { display: block; }
+  #view-analysis { max-width: none; }
+  .page-title { font-size: 26px; font-weight: 700; }
+  .page-sub { font-size: 14px; color: var(--text-secondary); margin-top: 4px; }
+
+  .toolbar { display: flex; align-items: center; justify-content: space-between; margin: 20px 0 14px; gap: 12px; flex-wrap: wrap; }
+  .search {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface-card); border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm); padding: 8px 12px; width: 280px;
+    color: var(--text-tertiary);
+  }
+  .search input { border: none; outline: none; flex: 1; font-size: 14px; background: transparent; color: var(--text-primary); }
+  .btn {
+    border: none; border-radius: var(--radius-sm); padding: 9px 16px;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: filter .12s ease;
+  }
+  .btn:hover { filter: brightness(0.95); }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-ghost { background: var(--surface-card); color: var(--text-secondary); border: 1px solid var(--border-subtle); }
+  .btn[disabled] { opacity: .5; cursor: default; }
+  .count-hint { font-size: 13px; color: var(--text-tertiary); margin-right: 10px; }
+
+  /* ── 影片佇列表格 ───────────────────────────────── */
+  .queue-card { border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: visible; box-shadow: var(--shadow-xs); background: var(--surface-card); }
+  .q-head, .q-row { display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .q-head {
+    background: var(--surface-sunken); font-size: 11px; font-weight: 600;
+    color: var(--text-tertiary); text-transform: uppercase; letter-spacing: .04em;
+    border-bottom: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+  .q-row { border-bottom: 1px solid var(--border-subtle); padding: 12px 16px; cursor: pointer; transition: background .12s ease; }
+  .q-row:last-child { border-bottom: none; }
+  .q-row:hover { background: var(--surface-hover); }
+  .col-thumb { width: 88px; flex-shrink: 0; }
+  .col-main { flex: 1; min-width: 0; }
+  .col-time { width: 148px; flex-shrink: 0; font-size: 13px; color: var(--text-tertiary); }
+  .col-status { width: 132px; flex-shrink: 0; }
+  .col-vis { width: 78px; flex-shrink: 0; font-size: 12px; color: var(--text-tertiary); display: flex; align-items: center; gap: 4px; }
+  .col-menu { width: 34px; flex-shrink: 0; position: relative; }
+  .thumb {
+    width: 88px; height: 52px; border-radius: var(--radius-sm);
+    background: #eef0f3; color: #b3bac4;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .v-title { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 6px; overflow: hidden; }
+  .v-title span.t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .v-title .pin { color: var(--accent); flex-shrink: 0; display: inline-flex; }
+  .v-desc { font-size: 13px; color: var(--text-secondary); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .progress-wrap { margin-top: 8px; width: 240px; height: 6px; border-radius: 3px; background: #edeff2; overflow: hidden; }
+  .progress-bar { height: 100%; border-radius: 3px; background: var(--accent); transition: width .3s ease; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
+  }
+  .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .badge.complete   { background: #e7f6ef; color: var(--success); }
+  .badge.uploading  { background: var(--accent-soft); color: var(--accent); }
+  .badge.processing { background: #fdf3e2; color: var(--warning); }
+  .badge.failed     { background: #fdebec; color: var(--danger); }
+  .badge.canceled   { background: #eff1f4; color: var(--text-tertiary); }
+  .badge.scheduled  { background: #eef0fd; color: #5b6bd6; }
+  .badge.pending    { background: #f3f0fa; color: #7a5fbf; }
+
+  .icon-btn {
+    width: 30px; height: 30px; border-radius: 8px; border: none;
+    background: transparent; color: var(--text-tertiary); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .icon-btn:hover, .icon-btn.open { background: var(--surface-hover); color: var(--text-primary); }
+
+  .ctx-menu {
+    position: absolute; top: 36px; right: 0; z-index: 40;
+    background: var(--surface-card); border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md); box-shadow: 0 8px 24px rgba(20,24,34,.14);
+    min-width: 168px; padding: 6px; display: none;
+  }
+  .ctx-menu.open { display: block; }
+  .ctx-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    width: 100%; border: none; background: transparent; cursor: pointer;
+    padding: 9px 10px; border-radius: 8px; font-size: 14px; color: var(--text-primary);
+    text-align: left;
+  }
+  .ctx-item:hover { background: var(--surface-hover); }
+  .ctx-item.danger { color: var(--danger); }
+  .empty-row { padding: 36px; text-align: center; color: var(--text-tertiary); font-size: 14px; }
+
+  /* ── 日曆 ───────────────────────────────────────── */
+  .cal-toolbar { display: flex; align-items: center; gap: 10px; margin: 20px 0 14px; }
+  .cal-month { font-size: 18px; font-weight: 700; min-width: 150px; text-align: center; }
+  .cal-nav {
+    width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border-subtle);
+    background: var(--surface-card); cursor: pointer; color: var(--text-secondary);
+    display: flex; align-items: center; justify-content: center; font-size: 15px;
+  }
+  .cal-nav:hover { background: var(--surface-hover); }
+  .cal-card { border: 1px solid var(--border-subtle); border-radius: var(--radius-md); overflow: hidden; background: var(--surface-card); box-shadow: var(--shadow-xs); }
+  .cal-days, .cal-week { display: grid; grid-template-columns: repeat(7, 1fr); }
+  .cal-days { border-bottom: 1px solid var(--border-subtle); }
+  .cal-days div { padding: 12px; font-size: 11px; font-weight: 700; letter-spacing: .06em; color: var(--text-secondary); text-align: center; }
+  .cal-week { border-bottom: 1px solid var(--border-subtle); }
+  .cal-week:last-child { border-bottom: none; }
+  .cal-cell {
+    min-height: 96px; padding: 10px; cursor: pointer;
+    border-right: 1px solid var(--border-subtle);
+    display: flex; flex-direction: column; gap: 6px;
+    transition: background .12s ease;
+  }
+  .cal-cell:last-child { border-right: none; }
+  .cal-cell:hover { background: var(--surface-hover); }
+  .cal-date { font-size: 13px; font-weight: 600; }
+  .cal-cell.dim .cal-date { color: var(--text-muted); font-weight: 400; }
+  .cal-cell.today .cal-date {
+    color: #fff; background: var(--accent); width: 22px; height: 22px;
+    display: inline-flex; align-items: center; justify-content: center; border-radius: 50%;
+  }
+  .chip {
+    font-size: 11px; font-weight: 600; color: #fff; border-radius: 5px;
+    padding: 3px 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .chip b { font-weight: 700; margin-right: 4px; }
+  .chip.c0 { background: #ef3e63; } .chip.c1 { background: #29c299; }
+  .chip.c2 { background: #3f6ff0; } .chip.c3 { background: #e8960c; }
+
+  /* ── 對話框（新增影片 / 新增事件）───────────────── */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(18, 22, 30, .45);
+    display: none; align-items: center; justify-content: center; z-index: 100;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    width: 520px; max-width: calc(100vw - 40px); max-height: calc(100vh - 60px);
+    overflow: auto; background: var(--surface-card); border-radius: var(--radius-lg);
+    box-shadow: 0 20px 50px rgba(15, 19, 28, .3); padding: 24px;
+  }
+  .modal h2 { font-size: 18px; margin-bottom: 4px; }
+  .modal .m-sub { font-size: 13px; color: var(--text-tertiary); margin-bottom: 18px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+  .field input[type=text], .field input[type=date], .field input[type=time], .field input[type=number],
+  .field select, .field textarea {
+    width: 100%; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+    padding: 9px 12px; font-size: 14px; font-family: inherit; background: var(--surface-card);
+    color: var(--text-primary); outline: none;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .field textarea { resize: vertical; min-height: 64px; }
+  .field .hint { font-size: 12px; color: var(--text-tertiary); margin-top: 4px; }
+  .field-row { display: flex; gap: 12px; }
+  .field-row .field { flex: 1; }
+  .file-drop {
+    border: 1.5px dashed var(--border-subtle); border-radius: var(--radius-md);
+    padding: 20px; text-align: center; color: var(--text-tertiary); font-size: 13px;
+    cursor: pointer; transition: border-color .12s ease, background .12s ease;
+  }
+  .file-drop:hover, .file-drop.has-file { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+  /* ── 上片時間設定：星期選取（pill 切換）──────────── */
+  .weekday-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .wd input { display: none; }
+  .wd span {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 42px; height: 34px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle); font-size: 14px; font-weight: 600;
+    color: var(--text-secondary); cursor: pointer; user-select: none;
+    transition: background .12s ease, color .12s ease, border-color .12s ease;
+  }
+  .wd input:checked + span { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+
+  /* ── 後端狀態 / 提示訊息 ─────────────────────────── */
+  .backend-pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 12px; font-weight: 600; color: var(--text-tertiary);
+    background: var(--surface-card); border: 1px solid var(--border-subtle);
+    border-radius: 999px; padding: 5px 12px;
+  }
+  .backend-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
+  .backend-pill.online .dot { background: var(--success); }
+  .backend-pill.online { color: var(--success); }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(8px);
+    background: #23262d; color: #fff; font-size: 13px; padding: 10px 18px;
+    border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease; z-index: 200;
+    max-width: 80vw;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── 影片生成（整合 video 前端）─────────────────────
+     樣式移植自 video/app.py 的 INDEX_HTML，
+     一律以 #view-generate 作用域避免與本頁的
+     .chip（日曆）、.progress-*（佇列）等類名衝突。 */
+  #view-generate .gen-page-tabs { display: flex; gap: 8px; margin: 20px 0 18px; }
+  #view-generate .gen-page-tabs button {
+    flex: 1; padding: 10px; font-size: 15px; cursor: pointer;
+    border: 1px solid var(--border-subtle); border-radius: 10px;
+    background: var(--surface-card); color: var(--text-secondary);
+  }
+  #view-generate .gen-page-tabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #view-generate section {
+    background: var(--surface-card); border: 1px solid var(--border-subtle);
+    border-radius: 12px; padding: 18px 20px; margin-bottom: 16px;
+  }
+  #view-generate section h2 { font-size: 16px; margin: 0 0 12px; }
+  #view-generate section h2 .num {
+    display: inline-block; width: 22px; height: 22px; line-height: 22px;
+    text-align: center; border-radius: 50%; background: var(--accent);
+    color: #fff; font-size: 13px; margin-right: 8px;
+  }
+  #view-generate .hint { color: var(--text-tertiary); font-size: 13px; margin: 0 0 10px; }
+  #view-generate .tabs { margin-bottom: 10px; }
+  #view-generate .tabs button {
+    border: 1px solid var(--border-subtle); background: none; color: var(--text-secondary);
+    padding: 4px 14px; border-radius: 16px; cursor: pointer; font-size: 13px;
+    margin-right: 6px;
+  }
+  #view-generate .tabs button.active { background: var(--text-primary); color: #fff; border-color: var(--text-primary); }
+  #view-generate .kw-chips { display: flex; flex-wrap: wrap; gap: 8px; max-height: 220px; overflow-y: auto; }
+  #view-generate .kw-chip {
+    border: 1px solid var(--border-subtle); background: none; color: var(--text-primary);
+    padding: 6px 14px; border-radius: 18px; cursor: pointer; font-size: 14px;
+  }
+  #view-generate .kw-chip.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #view-generate .styles { display: flex; gap: 10px; }
+  #view-generate .style-card {
+    border: 2px solid var(--border-subtle); border-radius: 8px; padding: 8px 22px;
+    cursor: pointer; background: none; font-size: 15px; color: var(--text-primary);
+  }
+  #view-generate .style-card.selected { border-color: var(--accent); background: var(--accent-soft); }
+  #view-generate #dropzone {
+    border: 2px dashed var(--border-subtle); border-radius: 10px; padding: 28px;
+    text-align: center; color: var(--text-tertiary); cursor: pointer;
+  }
+  #view-generate #dropzone.dragover { border-color: var(--accent); background: var(--accent-soft); }
+  #view-generate #dropzone img { max-width: 100%; max-height: 240px; border-radius: 8px; }
+  #view-generate textarea {
+    width: 100%; min-height: 72px; border: 1px solid var(--border-subtle);
+    border-radius: 8px; padding: 10px; font: inherit; resize: vertical;
+    background: var(--surface-card); color: var(--text-primary);
+  }
+  #view-generate #generate-btn {
+    width: 100%; padding: 13px; font-size: 16px; border: none;
+    border-radius: 10px; background: var(--accent); color: #fff; cursor: pointer;
+  }
+  #view-generate #generate-btn:hover { filter: brightness(.95); }
+  #view-generate #generate-btn:disabled { background: var(--text-muted); cursor: wait; }
+  #view-generate #result img { max-width: 100%; border-radius: 10px; border: 1px solid var(--border-subtle); }
+  #view-generate .error { color: var(--danger); font-size: 14px; }
+  #view-generate .topic-box {
+    display: inline-block; font-size: 15px; padding: 8px 16px;
+    background: var(--accent-soft); border-radius: 8px;
+  }
+  #view-generate .script-card {
+    border: 1px solid var(--border-subtle); border-radius: 18px; background: var(--surface-card);
+    padding: 14px 16px 12px; box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  }
+  #view-generate #script-text {
+    min-height: 90px; white-space: pre-wrap; outline: none;
+    font: inherit; color: var(--text-primary); padding: 2px 2px 12px;
+  }
+  #view-generate #script-text:empty::before { content: attr(data-placeholder); color: var(--text-tertiary); }
+  #view-generate #script-text[contenteditable="true"] {
+    border-radius: 8px; background: #fffbea; caret-color: var(--accent);
+  }
+  #view-generate .script-toolbar { display: flex; align-items: center; justify-content: space-between; }
+  #view-generate .script-toolbar .left { display: flex; gap: 8px; }
+  #view-generate .tool-btn {
+    width: 40px; height: 40px; border-radius: 50%; font-size: 18px;
+    border: 1px solid var(--border-subtle); background: var(--surface-card); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; padding: 0;
+  }
+  #view-generate .tool-btn:hover { background: var(--surface-hover); }
+  #view-generate .tool-btn.active { border-color: var(--accent); background: var(--accent-soft); }
+  #view-generate .send-btn {
+    width: 46px; height: 40px; border-radius: 12px; border: none;
+    background: #e7e7e2; color: var(--text-primary); font-size: 19px; cursor: pointer;
+  }
+  #view-generate .send-btn:hover { background: #dbdbd4; }
+  #view-generate .tool-btn:disabled, #view-generate .send-btn:disabled { opacity: .45; cursor: wait; }
+  #view-generate #video-result video { max-width: 100%; border-radius: 10px; margin-top: 12px; }
+  #view-generate .two-col {
+    display: grid; grid-template-columns: 1fr 2fr;
+    gap: 16px; align-items: start;
+  }
+  #view-generate .col-left, #view-generate .col-right { min-width: 0; }
+  #view-generate .col-right .panel { position: sticky; top: 16px; }
+  @media (max-width: 900px) {
+    #view-generate .two-col { grid-template-columns: 1fr; }
+    #view-generate .col-right .panel { position: static; }
+  }
+  #view-generate .panel {
+    background: var(--surface-card); border: 1px solid var(--border-subtle);
+    border-radius: 12px; padding: 18px 20px; margin-bottom: 16px;
+  }
+  #view-generate .panel > h2 { font-size: 16px; margin: 0 0 12px; }
+  #view-generate .placeholder {
+    border: 2px dashed var(--border-subtle); border-radius: 10px;
+    padding: 56px 20px; text-align: center; color: var(--text-tertiary);
+    background: var(--surface-page); font-size: 14px;
+  }
+  #view-generate .gen-progress-wrap { margin-top: 16px; }
+  #view-generate .gen-progress-bar {
+    height: 10px; background: var(--border-subtle);
+    border-radius: 6px; overflow: hidden;
+  }
+  #view-generate .gen-progress-fill {
+    height: 100%; width: 0%; background: var(--accent);
+    border-radius: 6px; transition: width .4s linear;
+  }
+  #view-generate .gen-progress-label { font-size: 13px; color: var(--text-tertiary); margin-top: 6px; }
+  /* 自動上傳（auto_upload）切換：生成影片下方 */
+  #view-generate .auto-upload-row {
+    display: flex; align-items: center; gap: 8px; margin-top: 14px;
+    font-size: 13px; color: var(--text-secondary); cursor: pointer; user-select: none;
+  }
+  #view-generate .auto-upload-row input { width: 16px; height: 16px; accent-color: var(--accent); margin: 0; }
+</style>
+</head>
+<body>
+
+<!-- ═══ 左側直向工具列：日曆與影片按鍵 ═══ -->
+<nav class="sidebar">
+  <div class="sidebar-pill">
+    <button class="nav-btn" data-view="videos">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 8h4M3 16h4M17 8h4M17 16h4"/></svg>
+      <span class="tip">影片上傳佇列</span>
+    </button>
+    <button class="nav-btn" data-view="generate">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+      <span class="tip">影片生成</span>
+    </button>
+    <button class="nav-btn" data-view="calendar">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 9h18"/></svg>
+      <span class="tip">排程日曆</span>
+    </button>
+    <div class="nav-sep"></div>
+    <button class="nav-btn" data-view="analysis">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      <span class="tip">數據分析</span>
+    </button>
+    <div class="nav-sep"></div>
+    <button class="nav-btn" id="nav-settings">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      <span class="tip">上片時間設定</span>
+    </button>
+  </div>
+</nav>
+
+<main class="main">
+
+  <!-- ═══ 影片上傳佇列（前端：example/queue，後端：example/code/upload.py）═══ -->
+  <section class="view" id="view-videos">
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+      <div>
+        <div class="page-title">影片上傳佇列</div>
+        <div class="page-sub">上傳後依隱私設定對外顯示，設為公開前請再次確認內容。</div>
+      </div>
+      <span class="backend-pill" id="pill-upload"><span class="dot"></span><span class="pill-text">後端檢查中…</span></span>
+    </div>
+
+    <div class="toolbar">
+      <div class="search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input id="q-search" type="text" placeholder="搜尋影片…">
+      </div>
+      <div style="display:flex; align-items:center;">
+        <span class="count-hint" id="q-count"></span>
+        <button class="btn btn-primary" id="btn-add-video">＋ 新增影片</button>
+      </div>
+    </div>
+
+    <div class="queue-card">
+      <div class="q-head">
+        <div class="col-thumb">影片縮圖</div>
+        <div class="col-main">標題 / 說明</div>
+        <div class="col-time">上傳時間</div>
+        <div class="col-status">上傳進度</div>
+        <div class="col-vis">公開性</div>
+        <div class="col-menu"></div>
+      </div>
+      <div id="q-rows"></div>
+    </div>
+  </section>
+
+  <!-- ═══ 排程日曆（前端：example/calander，後端：example/code/calander.py）═══ -->
+  <section class="view" id="view-calendar">
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+      <div>
+        <div class="page-title">排程日曆</div>
+        <div class="page-sub">點選任一日期即可新增待上傳影片，影片將於指定時間在 YouTube 自動發布，並於發布前 1 小時建立 Google 日曆提醒。</div>
+      </div>
+      <span class="backend-pill" id="pill-cal"><span class="dot"></span><span class="pill-text">後端檢查中…</span></span>
+    </div>
+
+    <div class="cal-toolbar">
+      <button class="cal-nav" id="cal-prev">‹</button>
+      <div class="cal-month" id="cal-month"></div>
+      <button class="cal-nav" id="cal-next">›</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-ghost" id="cal-today">今天</button>
+    </div>
+
+    <div class="cal-card">
+      <div class="cal-days">
+        <div>SUN</div><div>MON</div><div>TUE</div><div>WED</div><div>THU</div><div>FRI</div><div>SAT</div>
+      </div>
+      <div id="cal-grid"></div>
+    </div>
+  </section>
+
+  <!-- ═══ 影片生成（整合 video：縮圖製作＋腳本&影片生成）═══
+       後端為根目錄 server.py（port 8700，已整合 video 的 router），
+       頁面內容由 JavaScript 動態建立（移植自 video/app.py 的 INDEX_HTML）。 -->
+  <section class="view" id="view-generate">
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+      <div>
+        <div class="page-title">影片生成</div>
+        <div class="page-sub">縮圖製作與腳本&影片生成；勾選「自動上傳」後，生成的短影音會直接加入影片上傳佇列（待上傳）。</div>
+      </div>
+      <span class="backend-pill" id="pill-gen"><span class="dot"></span><span class="pill-text">後端檢查中…</span></span>
+    </div>
+    <div id="gen-app"></div>
+  </section>
+
+  <!-- ═══ 數據分析（整合 data：分析頁面用 iframe 嵌入 data/analysis_router.py）═══
+       頁面與資料 API 由根目錄 server.py（port 8700）的 analysis_router 提供，
+       與影片生成等功能同一個後端，不需要另外啟動伺服器。 -->
+  <section class="view" id="view-analysis">
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+      <div>
+        <div class="page-title">數據分析</div>
+        <div class="page-sub">#AI Shorts 數據分析頁面。</div>
+      </div>
+      <span class="backend-pill" id="pill-analysis"><span class="dot"></span><span class="pill-text">後端檢查中…</span></span>
+    </div>
+    <iframe id="analysis-frame" title="數據分析" style="width:100%; height:calc(100vh - 140px); border:1px solid var(--border); border-radius:10px; margin-top:14px; background:var(--bg-elevated, #14162280);"></iframe>
+  </section>
+</main>
+
+<!-- ═══ 新增影片對話框 → 對應 upload.py 的參數 ═══ -->
+<div class="overlay" id="ov-upload">
+  <div class="modal">
+    <h2>新增影片</h2>
+    <div class="m-sub">送出後由 example/code/upload.py 執行：上傳影片（initialize_upload）＋自動留言（auto_comment）。</div>
+    <div class="field">
+      <div class="file-drop" id="file-drop">點擊選擇影片檔案（--file）</div>
+      <input type="file" id="f-file" accept="video/*" style="display:none">
+    </div>
+    <div class="field">
+      <label>標題（--title）</label>
+      <input type="text" id="f-title" placeholder="影片標題">
+    </div>
+    <div class="field">
+      <label>說明（--description）</label>
+      <textarea id="f-desc" placeholder="影片說明"></textarea>
+    </div>
+    <div class="field">
+      <label>上傳方式</label>
+      <select id="f-mode">
+        <option value="now" selected>立即上傳</option>
+        <option value="pending">待上傳（依上片時間設定自動排程）</option>
+      </select>
+      <div class="hint">待上傳：先加入佇列，依側邊欄「上片時間設定」自動排程到這禮拜最早的上片時間發布。</div>
+    </div>
+    <div class="field" id="fld-privacy">
+      <label>隱私狀態（--privacyStatus）</label>
+      <select id="f-privacy">
+        <option value="private" selected>私人 private</option>
+        <option value="unlisted">不公開 unlisted</option>
+        <option value="public">公開 public</option>
+      </select>
+    </div>
+    <div class="field" id="fld-keywords">
+      <label>關鍵字（--keywords）</label>
+      <input type="text" id="f-keywords" placeholder="以逗號分隔，例：dogs,outdoor">
+    </div>
+    <div class="field">
+      <label>自動留言（--comment）</label>
+      <input type="text" id="f-comment" placeholder="上傳成功後自動發送的留言，留空則不留言">
+      <div class="hint">上傳成功取得 video_id 後，後端會自動呼叫 auto_comment() 發送這則留言。</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close="ov-upload">取消</button>
+      <button class="btn btn-primary" id="f-submit">開始上傳</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 編輯影片對話框 → 點擊佇列上的任一儲存格開啟，欄位同「新增影片」═══ -->
+<div class="overlay" id="ov-edit">
+  <div class="modal">
+    <h2>編輯影片</h2>
+    <div class="m-sub" id="ed-sub">修改這部影片的標題等資訊。</div>
+    <div class="field">
+      <label>標題</label>
+      <input type="text" id="ed-title" placeholder="影片標題">
+    </div>
+    <div class="field">
+      <label>說明</label>
+      <textarea id="ed-desc" placeholder="影片說明"></textarea>
+    </div>
+    <div class="field">
+      <label>關鍵字</label>
+      <input type="text" id="ed-keywords" placeholder="以逗號分隔，例：dogs,outdoor">
+    </div>
+    <div class="field">
+      <label>公開性</label>
+      <select id="ed-privacy">
+        <option value="private">私人 private</option>
+        <option value="public">公開 public</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>自動留言（comment）</label>
+      <input type="text" id="ed-comment" placeholder="留空則不留言">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close="ov-edit">取消</button>
+      <button class="btn btn-primary" id="ed-save">儲存修改</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 新增待上傳影片對話框 → /api/schedule：排程上傳 + 日曆提醒 ═══ -->
+<div class="overlay" id="ov-event">
+  <div class="modal">
+    <h2>新增待上傳影片</h2>
+    <div class="m-sub">影片以 private 上傳並於指定時間（台北時間）在 YouTube 自動發布；calander.py 會在發布前 1 小時寫入 Google 日曆提醒。</div>
+    <div class="field">
+      <div class="file-drop" id="e-file-drop">點擊選擇影片檔案（file）</div>
+      <input type="file" id="e-file" accept="video/*" style="display:none">
+    </div>
+    <div class="field">
+      <label>標題（title）</label>
+      <input type="text" id="e-title" placeholder="影片標題">
+    </div>
+    <div class="field">
+      <label>說明（description）</label>
+      <textarea id="e-desc" placeholder="影片說明"></textarea>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>發布日期（date_str）</label>
+        <input type="date" id="e-date">
+      </div>
+      <div class="field">
+        <label>發布時間（time_str）</label>
+        <input type="time" id="e-time" value="09:00">
+      </div>
+    </div>
+    <div class="field">
+      <label>關鍵字（keywords，選填）</label>
+      <input type="text" id="e-keywords" placeholder="以逗號分隔，例：dogs,outdoor">
+    </div>
+    <div class="field">
+      <label>自動留言（comment，選填）</label>
+      <input type="text" id="e-comment" placeholder="上傳成功後自動發送的留言，留空則不留言">
+      <div class="hint">留言存入 database/schedule.db，後端計時器會在發布時間到達後參考 comment.py 自動發送（private 影片發布前無法留言）。</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close="ov-event">取消</button>
+      <button class="btn btn-primary" id="e-submit">排程上傳</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 上片時間設定對話框（側邊欄 ⚙）═══ -->
+<div class="overlay" id="ov-settings">
+  <div class="modal">
+    <h2>上片時間設定</h2>
+    <div class="m-sub">選擇每週上片的星期與時間；佇列中「待上傳」且未指定時間的影片，會自動排程到最早的上片時間發布。</div>
+    <div class="field">
+      <label>上片星期</label>
+      <div class="weekday-row">
+        <label class="wd"><input type="checkbox" value="1"><span>一</span></label>
+        <label class="wd"><input type="checkbox" value="2"><span>二</span></label>
+        <label class="wd"><input type="checkbox" value="3"><span>三</span></label>
+        <label class="wd"><input type="checkbox" value="4"><span>四</span></label>
+        <label class="wd"><input type="checkbox" value="5"><span>五</span></label>
+        <label class="wd"><input type="checkbox" value="6"><span>六</span></label>
+        <label class="wd"><input type="checkbox" value="0"><span>日</span></label>
+      </div>
+    </div>
+    <div class="field">
+      <label>上片時間</label>
+      <input type="time" id="s-time" value="09:00">
+      <div class="hint">設定會存在瀏覽器（localStorage）；儲存後立即自動排程佇列中的待上傳影片。</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close="ov-settings">取消</button>
+      <button class="btn btn-primary" id="s-save">儲存設定</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ═══════════════════════════════════════════════════════════════
+   後端串接設定
+   本頁為純前端 preview；實際功能需要一層 HTTP 包裝（如 Flask）
+   把下列端點轉呼叫 example/code 內的兩支 Python：
+
+     GET  {API}/api/health           → 健康檢查（前端據此顯示「後端已連線」）
+     POST {API}/api/upload (multipart/form-data)
+          欄位: file, title, description, keywords,
+                privacyStatus, comment
+          → upload.py: get_authenticated_service()
+                       → initialize_upload()（回傳 video_id）
+                       → comment 非空時 auto_comment(youtube, video_id, comment)
+     POST {API}/api/schedule (multipart/form-data)
+          欄位: file, title, description, date_str, time_str,
+                keywords, comment
+          → 影片以 private + publishAt 排程上傳，YouTube 於指定
+            時間（台北時間）自動發布；排程資料存入 dogsout/database/
+            schedule.db，
+            comment 由後端計時器在發布時間到達後參考 comment.py
+            自動發送；calander.py 於發布前 1 小時建立 Google 日曆
+            提醒（insert_exact_event）。排程後同步加入影片佇列，
+            進度欄顯示「待13:00上傳」
+
+   待上傳＋上片時間設定（純前端）：
+     「新增影片」可選「待上傳」——影片先進佇列（badge：待上傳），
+     檔案暫存在瀏覽器記憶體；側邊欄 ⚙ 可設定每週上片星期與時間
+     （localStorage）。儲存設定後，待上傳且未指定時間的影片自動
+     安排到這禮拜最早到的上片時間（過了則順延），一個時段一部，
+     實際排程仍呼叫上面的 /api/schedule。
+
+   後端未啟動時自動進入「展示模式」：上傳以模擬進度呈現、
+   日曆事件僅寫入畫面，不會真的呼叫 Google API。
+   ═══════════════════════════════════════════════════════════════ */
+const API = "http://localhost:8700"; // server.py：整合 video 與 manage 所有 router 的後端
+let uploadOnline = false, calOnline = false;
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove("show"), 3200);
+}
+
+async function checkBackend() {
+  try {
+    const r = await fetch(API + "/api/health", { signal: AbortSignal.timeout(1500) });
+    uploadOnline = calOnline = r.ok;
+  } catch { uploadOnline = calOnline = false; }
+  for (const [id, on, name] of [["pill-upload", uploadOnline, "upload.py"], ["pill-cal", calOnline, "calander.py"]]) {
+    const pill = $(id);
+    pill.classList.toggle("online", on);
+    pill.querySelector(".pill-text").textContent = on ? `後端已連線（${name}）` : `展示模式（${name} 未啟動）`;
+  }
+}
+
+/* ── 數據分析（iframe 嵌入 server.py 的 analysis_router）──────── */
+let analysisLoaded = false;
+
+async function checkAnalysisBackend() {
+  let on;
+  try {
+    const r = await fetch(API + "/api/analysis/stats", { signal: AbortSignal.timeout(1500) });
+    on = r.ok;
+  } catch { on = false; }
+  const pill = $("pill-analysis");
+  pill.classList.toggle("online", on);
+  pill.querySelector(".pill-text").textContent =
+    on ? "後端已連線（server.py）" : "未連線（請先執行 server.py）";
+  return on;
+}
+
+async function loadAnalysis() {
+  const on = await checkAnalysisBackend();
+  const frame = $("analysis-frame");
+  if (on) { if (!analysisLoaded) { frame.src = API + "/api/analysis"; analysisLoaded = true; } }
+  else { frame.removeAttribute("src"); analysisLoaded = false; }
+}
+
+/* ── 視圖切換（左側直向按鈕）──────────────────────── */
+document.querySelectorAll(".nav-btn[data-view]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".nav-btn[data-view]").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+    btn.classList.add("active");
+    $("view-" + btn.dataset.view).classList.add("active");
+    if (btn.dataset.view === "analysis") loadAnalysis();
+  });
+});
+document.querySelector('.nav-btn[data-view="videos"]').click();
+
+/* ═══ 影片上傳佇列 ═══════════════════════════════════ */
+const STATUS_LABEL = {
+  complete:   "已完成",
+  uploading:  "上傳中",
+  processing: "處理中",
+  failed:     "上傳失敗",
+  canceled:   "已取消上傳",
+  pending:    "待上傳",
+};
+/* scheduled（待上傳）的標籤含發布時間，於 renderQueue 內動態產生：待13:00上傳 */
+let nextId = 1;
+let videos = [];
+let menuOpenId = null;
+
+const ICONS = {
+  film: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 8h4M3 16h4M17 8h4M17 16h4"/></svg>',
+  dots: '<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
+  pin:  '<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.5 5.5L19 9l-4.5 3L16 18l-4-3-4 3 1.5-6L5 9l5.5-1.5z"/></svg>',
+  pinO: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l1.5 5.5L19 9l-4.5 3L16 18l-4-3-4 3 1.5-6L5 9l5.5-1.5z"/></svg>',
+  eye:  '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+  eyeOff: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.94 10.94 0 0112 19c-7 0-11-7-11-7a21 21 0 015.06-5.94M9.9 4.24A10.94 10.94 0 0112 4c7 0 11 7 11 7a21 21 0 01-2.16 3.19M1 1l22 22"/></svg>',
+  trash: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>',
+};
+
+function renderQueue() {
+  const q = $("q-search").value.trim().toLowerCase();
+  const list = videos
+    .filter(v => v.title.toLowerCase().includes(q))
+    .sort((a, b) => (b.pinned - a.pinned));
+  $("q-count").textContent = `${videos.length} / 12 部影片`;
+  $("btn-add-video").disabled = videos.length >= 12;
+
+  const rows = $("q-rows");
+  if (!list.length) {
+    rows.innerHTML = `<div class="empty-row">${videos.length === 0
+      ? "目前沒有影片，點右上角「＋新增影片」開始上傳。"
+      : `沒有符合「${esc(q)}」的影片。`}</div>`;
+    return;
+  }
+  rows.innerHTML = list.map(v => `
+    <div class="q-row" data-id="${v.id}">
+      <div class="col-thumb"><div class="thumb">${ICONS.film}</div></div>
+      <div class="col-main">
+        <div class="v-title">${v.pinned ? `<span class="pin">${ICONS.pin}</span>` : ""}<span class="t">${esc(v.title)}</span></div>
+        <div class="v-desc">${esc(v.desc)}</div>
+        ${v.status === "uploading" ? `<div class="progress-wrap"><div class="progress-bar" style="width:${v.progress}%"></div></div>` : ""}
+      </div>
+      <div class="col-time">${esc(v.time)}</div>
+      <div class="col-status"><span class="badge ${v.status}">${v.status === "uploading" ? `上傳中 ${v.progress}%` : v.status === "scheduled" ? `待${esc(v.publishTime)}上傳` : STATUS_LABEL[v.status]}</span></div>
+      <div class="col-vis">${v.pub ? ICONS.eye : ICONS.eyeOff} ${v.pub ? "公開" : "私人"}</div>
+      <div class="col-menu">
+        <button class="icon-btn ${menuOpenId === v.id ? "open" : ""}" data-menu="${v.id}">${ICONS.dots}</button>
+        <div class="ctx-menu ${menuOpenId === v.id ? "open" : ""}">
+          <button class="ctx-item" data-act="pin" data-id="${v.id}"><span>${v.pinned ? "取消釘選" : "釘選 Pin"}</span>${ICONS.pinO}</button>
+          <button class="ctx-item" data-act="vis" data-id="${v.id}"><span>${v.pub ? "設為私人" : "設為公開"}</span>${v.pub ? ICONS.eyeOff : ICONS.eye}</button>
+          <button class="ctx-item danger" data-act="delete" data-id="${v.id}"><span>刪除 Delete</span>${ICONS.trash}</button>
+        </div>
+      </div>
+    </div>`).join("");
+}
+
+$("q-rows").addEventListener("click", (ev) => {
+  const menuBtn = ev.target.closest("[data-menu]");
+  if (menuBtn) {
+    const id = Number(menuBtn.dataset.menu);
+    menuOpenId = (menuOpenId === id) ? null : id;
+    renderQueue();
+    return;
+  }
+  const item = ev.target.closest(".ctx-item");
+  if (item) {
+    const id = Number(item.dataset.id);
+    const act = item.dataset.act;
+    if (act === "delete") videos = videos.filter(v => v.id !== id);
+    else videos = videos.map(v => v.id !== id ? v :
+      act === "pin" ? { ...v, pinned: !v.pinned } : { ...v, pub: !v.pub });
+    menuOpenId = null;
+    renderQueue();
+    return;
+  }
+  // 點擊儲存格（非選單按鈕／選單項目）：開啟編輯視窗
+  if (ev.target.closest(".col-menu")) return;
+  const row = ev.target.closest(".q-row");
+  if (row) openEditModal(Number(row.dataset.id));
+});
+document.addEventListener("click", (ev) => {
+  if (menuOpenId !== null && !ev.target.closest(".col-menu")) { menuOpenId = null; renderQueue(); }
+});
+$("q-search").addEventListener("input", renderQueue);
+
+/* ── 點擊佇列儲存格：編輯影片（欄位同「新增影片」）───── */
+let editingId = null;
+function openEditModal(id) {
+  const v = videos.find(x => x.id === id);
+  if (!v) return;
+  editingId = id;
+  $("ed-title").value = v.title || "";
+  $("ed-desc").value = v.description || v.desc || "";
+  $("ed-keywords").value = v.keywords || "";
+  $("ed-comment").value = v.comment || "";
+  $("ed-privacy").value = v.pub ? "public" : "private";
+  $("ed-sub").textContent = v.status === "pending"
+    ? "尚未上傳，修改後會套用到之後的自動排程（/api/schedule）。"
+    : "此處修改僅更新本頁顯示，不會回頭更動已送出至 YouTube 的影片資訊。";
+  $("ov-edit").classList.add("open");
+}
+
+$("ed-save").addEventListener("click", () => {
+  const v = videos.find(x => x.id === editingId);
+  if (!v) { $("ov-edit").classList.remove("open"); return; }
+  const title = $("ed-title").value.trim();
+  if (!title) { toast("請輸入影片標題"); return; }
+  v.title = title;
+  v.description = $("ed-desc").value.trim();
+  v.desc = v.description || v.title;
+  v.keywords = $("ed-keywords").value.trim();
+  v.comment = $("ed-comment").value.trim();
+  v.pub = $("ed-privacy").value === "public";
+  $("ov-edit").classList.remove("open");
+  renderQueue();
+  toast("已更新影片資訊");
+});
+
+/* ── 新增影片：送到 upload.py 後端 ───────────────── */
+$("btn-add-video").addEventListener("click", () => $("ov-upload").classList.add("open"));
+$("file-drop").addEventListener("click", () => $("f-file").click());
+$("f-file").addEventListener("change", () => {
+  const f = $("f-file").files[0];
+  const drop = $("file-drop");
+  drop.classList.toggle("has-file", !!f);
+  drop.textContent = f ? `已選擇：${f.name}` : "點擊選擇影片檔案（--file）";
+  if (f && !$("f-title").value) $("f-title").value = f.name.replace(/\.[^.]+$/, "");
+});
+
+function nowLabel() {
+  const d = new Date();
+  const wd = ["日","一","二","三","四","五","六"][d.getDay()];
+  return `${d.getMonth() + 1}/${d.getDate()}（${wd}）${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+}
+
+/* 上傳方式切換：待上傳時隱私由排程端點決定（private + publishAt），先隱藏 */
+$("f-mode").addEventListener("change", () => {
+  const pending = $("f-mode").value === "pending";
+  $("fld-privacy").style.display = pending ? "none" : "";
+  $("f-submit").textContent = pending ? "加入待上傳" : "開始上傳";
+});
+
+$("f-submit").addEventListener("click", async () => {
+  const file = $("f-file").files[0];
+  if (!file) { toast("請先選擇影片檔案"); return; }
+
+  // 待上傳：不立即上傳，先進佇列（badge：待上傳），等上片時間設定自動排程
+  if ($("f-mode").value === "pending") {
+    if (videos.length >= 12) { toast("影片佇列已滿（12 部），請先刪除舊影片"); return; }
+    const title = $("f-title").value || file.name.replace(/\.[^.]+$/, "");
+    const description = $("f-desc").value.trim();
+    videos.unshift({
+      id: nextId++, title, desc: description || title, description,
+      keywords: $("f-keywords").value.trim(),
+      comment: $("f-comment").value.trim(), file,
+      time: nowLabel(), status: "pending", progress: 0,
+      publishTime: "", pub: false, pinned: false,
+    });
+    $("ov-upload").classList.remove("open");
+    renderQueue();
+    const s = loadUploadSettings();
+    if (s && s.days.length) autoSchedulePending();
+    else toast("已加入待上傳佇列；請點側邊欄 ⚙ 設定上片星期與時間後自動排程");
+    return;
+  }
+
+  const payload = {
+    title: $("f-title").value || "Test Title",
+    description: $("f-desc").value || "",
+    keywords: $("f-keywords").value,
+    privacyStatus: $("f-privacy").value,
+    comment: $("f-comment").value,
+  };
+  const row = {
+    id: nextId++, title: file.name,
+    description: payload.description, desc: payload.description || payload.title,
+    keywords: payload.keywords, comment: payload.comment,
+    time: nowLabel(), status: "uploading", progress: 0,
+    pub: payload.privacyStatus === "public", pinned: false,
+  };
+  videos.unshift(row);
+  $("ov-upload").classList.remove("open");
+  renderQueue();
+
+  if (uploadOnline) {
+    // 真實模式：multipart POST → 後端呼叫 upload.py 的 initialize_upload + auto_comment
+    const fd = new FormData();
+    fd.append("file", file);
+    Object.entries(payload).forEach(([k, v]) => fd.append(k, v));
+    try {
+      const r = await fetch(API + "/api/upload", { method: "POST", body: fd });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || r.statusText);
+      row.status = "complete"; row.progress = 100;
+      toast(`上傳成功！video_id：${data.video_id}${payload.comment ? "，已自動留言" : ""}`);
+    } catch (err) {
+      row.status = "failed";
+      toast("上傳失敗：" + err.message);
+    }
+    renderQueue();
+  } else {
+    // 展示模式：模擬 resumable_upload 的進度
+    const timer = setInterval(() => {
+      row.progress = Math.min(100, row.progress + 8 + Math.floor(Math.random() * 10));
+      if (row.progress >= 100) {
+        clearInterval(timer);
+        row.status = "complete";
+        toast(payload.comment ? "（展示）上傳完成，並模擬自動留言" : "（展示）上傳完成");
+      }
+      renderQueue();
+    }, 450);
+  }
+});
+
+/* ═══ 排程日曆 ═══════════════════════════════════════ */
+let calCursor = new Date();
+calCursor.setDate(1);
+const CHIP_COLORS = 4;
+let chipSeq = 0;
+// 事件以 "YYYY-MM-DD" 為鍵；初始為空，由使用者新增
+const events = {};
+function dkey(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+
+function renderCalendar() {
+  const y = calCursor.getFullYear(), m = calCursor.getMonth();
+  $("cal-month").textContent = `${y} 年 ${m + 1} 月`;
+  const first = new Date(y, m, 1);
+  const start = new Date(y, m, 1 - first.getDay());
+  const today = dkey(new Date());
+  let html = "", cur = new Date(start);
+  for (let w = 0; w < 6; w++) {
+    html += '<div class="cal-week">';
+    for (let d = 0; d < 7; d++) {
+      const k = dkey(cur);
+      const dim = cur.getMonth() !== m;
+      const chips = (events[k] || []).map(ev =>
+        `<span class="chip c${ev.color}">${ev.time ? `<b>${esc(ev.time)}</b>` : ""}${esc(ev.label)}</span>`).join("");
+      html += `<div class="cal-cell${dim ? " dim" : ""}${k === today ? " today" : ""}" data-date="${k}">
+        <span class="cal-date">${cur.getDate()}</span>
+        <div style="display:flex;flex-direction:column;gap:4px;">${chips}</div>
+      </div>`;
+      cur.setDate(cur.getDate() + 1);
+    }
+    html += "</div>";
+  }
+  $("cal-grid").innerHTML = html;
+}
+
+$("cal-prev").addEventListener("click", () => { calCursor.setMonth(calCursor.getMonth() - 1); renderCalendar(); });
+$("cal-next").addEventListener("click", () => { calCursor.setMonth(calCursor.getMonth() + 1); renderCalendar(); });
+$("cal-today").addEventListener("click", () => { calCursor = new Date(); calCursor.setDate(1); renderCalendar(); });
+
+$("cal-grid").addEventListener("click", (ev) => {
+  const cell = ev.target.closest(".cal-cell");
+  if (!cell) return;
+  $("e-date").value = cell.dataset.date;
+  $("ov-event").classList.add("open");
+  $("e-title").focus();
+});
+
+/* ── 新增待上傳影片：排程上傳 + 發布前 1 小時日曆提醒 ── */
+$("e-file-drop").addEventListener("click", () => $("e-file").click());
+$("e-file").addEventListener("change", () => {
+  const f = $("e-file").files[0];
+  const drop = $("e-file-drop");
+  if (f) { drop.textContent = f.name; drop.classList.add("has-file"); }
+  else { drop.textContent = "點擊選擇影片檔案（file）"; drop.classList.remove("has-file"); }
+});
+
+$("e-submit").addEventListener("click", async () => {
+  const file = $("e-file").files[0];
+  const title = $("e-title").value.trim();
+  const date_str = $("e-date").value;
+  const time_str = $("e-time").value || "09:00";
+  if (!file) { toast("請先選擇影片檔案"); return; }
+  if (!title) { toast("請輸入影片標題"); return; }
+  if (!date_str) { toast("請選擇發布日期"); return; }
+  if (new Date(`${date_str}T${time_str}`) <= new Date()) { toast("發布時間必須是未來的時間"); return; }
+  if (videos.length >= 12) { toast("影片佇列已滿（12 部），請先刪除舊影片"); return; }
+  const description = $("e-desc").value.trim();
+
+  if (calOnline) {
+    // 真實模式：multipart POST → 後端排程上傳 YouTube ＋ 自動留言 ＋ 建立日曆提醒
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("title", title);
+    fd.append("description", description);
+    fd.append("date_str", date_str);
+    fd.append("time_str", time_str);
+    fd.append("keywords", $("e-keywords").value.trim());
+    fd.append("comment", $("e-comment").value.trim());
+    toast("排程上傳中，請稍候…");
+    try {
+      const r = await fetch(API + "/api/schedule", { method: "POST", body: fd });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.detail || r.statusText);
+      toast(`已排程發布（video_id: ${data.video_id}）` +
+        (data.comment_scheduled ? "，留言將於發布時間自動送出" : "") +
+        (data.reminder_created ? "，日曆提醒已建立" : "，但日曆提醒建立失敗"));
+    } catch (err) {
+      toast("排程失敗：" + err.message);
+      return;
+    }
+  } else {
+    toast("（展示）已加入畫面，未實際上傳與排程");
+  }
+
+  // 寫入日曆畫面
+  (events[date_str] = events[date_str] || []).push({
+    time: time_str, label: "發布：" + title, color: (chipSeq++) % CHIP_COLORS,
+  });
+  // 同步顯示在影片上傳佇列：上傳進度顯示「待13:00上傳」
+  videos.unshift({
+    id: nextId++, title: title,
+    description, desc: description || `將於 ${date_str} ${time_str} 自動發布`,
+    keywords: $("e-keywords").value.trim(), comment: $("e-comment").value.trim(),
+    time: nowLabel(), status: "scheduled", progress: 0,
+    publishTime: time_str, pub: false, pinned: false,
+  });
+  renderQueue();
+  const [yy, mm] = date_str.split("-").map(Number);
+  calCursor = new Date(yy, mm - 1, 1);
+  $("ov-event").classList.remove("open");
+  ["e-title", "e-desc", "e-keywords", "e-comment"].forEach(id => $(id).value = "");
+  $("e-file").value = "";
+  $("e-file-drop").textContent = "點擊選擇影片檔案（file）";
+  $("e-file-drop").classList.remove("has-file");
+  renderCalendar();
+});
+
+/* ═══ 上片時間設定（側邊欄 ⚙）＋ 待上傳影片自動排程 ═══
+   選取每週上片的星期（一～日）與時間，存在 localStorage；
+   佇列中狀態為「待上傳」且未指定時間的影片，會自動安排到
+   這禮拜最早到的上片時間（都過了則順延到下週），一個時段
+   排一部，實際排程仍走 /api/schedule（private + publishAt）。 */
+const SETTINGS_KEY = "uploadSchedule";
+
+function loadUploadSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem(SETTINGS_KEY));
+    return s && Array.isArray(s.days) && s.days.length ? s : null;
+  } catch { return null; }
+}
+
+$("nav-settings").addEventListener("click", () => {
+  const s = loadUploadSettings();
+  document.querySelectorAll("#ov-settings .wd input").forEach(cb =>
+    cb.checked = !!(s && s.days.includes(Number(cb.value))));
+  if (s && s.time) $("s-time").value = s.time;
+  $("ov-settings").classList.add("open");
+});
+
+$("s-save").addEventListener("click", () => {
+  const days = [...document.querySelectorAll("#ov-settings .wd input:checked")].map(cb => Number(cb.value));
+  if (!days.length) { toast("請至少選擇一個上片星期"); return; }
+  const time = $("s-time").value || "09:00";
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify({ days, time }));
+  $("ov-settings").classList.remove("open");
+  if (!videos.some(v => v.status === "pending")) toast("已儲存上片時間設定");
+  autoSchedulePending();
+});
+
+/* 依設定產生未來的上片時段（由早到晚），一個時段排一部影片 */
+function nextSlots(settings, count) {
+  const slots = [];
+  const now = new Date();
+  const [hh, mi] = settings.time.split(":").map(Number);
+  for (let off = 0; slots.length < count && off < 60; off++) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + off, hh, mi);
+    if (d > now && settings.days.includes(d.getDay())) slots.push(d);
+  }
+  return slots;
+}
+
+let autoScheduling = false;
+async function autoSchedulePending() {
+  if (autoScheduling) return;
+  const settings = loadUploadSettings();
+  if (!settings) return;
+  // 佇列以最新在前（unshift），排程改用先加入者先排（FIFO）
+  const pending = videos.filter(v => v.status === "pending").reverse();
+  if (!pending.length) return;
+  autoScheduling = true;
+  if (calOnline) toast("自動排程上傳中，請稍候…");
+  const slots = nextSlots(settings, pending.length);
+  let ok = 0, fail = 0;
+  for (let i = 0; i < pending.length && i < slots.length; i++) {
+    const v = pending[i], slot = slots[i];
+    const date_str = dkey(slot);
+    const time_str = `${String(slot.getHours()).padStart(2, "0")}:${String(slot.getMinutes()).padStart(2, "0")}`;
+    if (calOnline) {
+      // 真實模式：走 /api/schedule（排程上傳 + schedule.db 留言 + 日曆提醒）
+      const fd = new FormData();
+      fd.append("file", v.file);
+      fd.append("title", v.title);
+      fd.append("description", v.description || "");
+      fd.append("date_str", date_str);
+      fd.append("time_str", time_str);
+      fd.append("keywords", v.keywords || "");
+      fd.append("comment", v.comment || "");
+      try {
+        const r = await fetch(API + "/api/schedule", { method: "POST", body: fd });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.detail || r.statusText);
+      } catch (err) {
+        fail++;
+        toast(`「${v.title}」自動排程失敗：${err.message}`);
+        continue; // 保留待上傳，下次儲存設定時重試
+      }
+    }
+    v.status = "scheduled";
+    v.publishTime = time_str;
+    v.pub = false;
+    v.file = null; // 已送出，釋放記憶體中的檔案
+    if (!v.description) v.desc = `將於 ${date_str} ${time_str} 自動發布`;
+    (events[date_str] = events[date_str] || []).push({
+      time: time_str, label: "發布：" + v.title, color: (chipSeq++) % CHIP_COLORS,
+    });
+    ok++;
+  }
+  autoScheduling = false;
+  renderQueue();
+  renderCalendar();
+  if (ok) toast((calOnline ? "" : "（展示）") +
+    `已自動排程 ${ok} 部待上傳影片，最早於 ${dkey(slots[0])} ${settings.time} 發布` +
+    (fail ? `；${fail} 部失敗，保留為待上傳` : ""));
+}
+
+/* ── 對話框關閉 ──────────────────────────────────── */
+document.querySelectorAll("[data-close]").forEach(btn =>
+  btn.addEventListener("click", () => $(btn.dataset.close).classList.remove("open")));
+document.querySelectorAll(".overlay").forEach(ov =>
+  ov.addEventListener("click", (e) => { if (e.target === ov) ov.classList.remove("open"); }));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") document.querySelectorAll(".overlay.open").forEach(ov => ov.classList.remove("open"));
+});
+
+renderQueue();
+renderCalendar();
+checkBackend();
+
+/* ═══ 影片生成（整合 video 前端）════════════════════════
+   移植自 video/app.py 的 INDEX_HTML；後端為根目錄 server.py
+   （port 8700，已整合 video 的 thumbnail_router 與 video_router）：
+     GET  {VIDEO_API}/api/keywords   關鍵字（database/shorts.db 的 cluster）
+     POST {VIDEO_API}/api/generate   Gemini 生成縮圖
+     POST {VIDEO_API}/api/script     qwen3 串流生成腳本（NDJSON）
+     POST {VIDEO_API}/api/video      Gemini（Veo）生成短影音
+
+   自動上傳（auto_upload）：生成影片下方的切換開關。啟動後，
+   生成完成的短影音直接加入「影片上傳佇列」——status：待上傳
+   （pending）、title：影片內容、description 留空、keywords：
+   影片主題——之後由側邊欄「上片時間設定」的自動排程
+   （autoSchedulePending → /api/schedule）實際上傳。 */
+(() => {
+const VIDEO_API = "http://localhost:8700"; // video 的 router 也整合在 server.py
+const state = { keyword: null, style: null, file: null, lang: "chinese", duration: null, thumbnail: null };
+let keywordData = { chinese: [], english: [] };
+
+const genApp = $("gen-app");
+
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") node.className = v;
+    else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
+    else node.setAttribute(k, v);
+  }
+  for (const c of children)
+    node.append(typeof c === "string" ? document.createTextNode(c) : c);
+  return node;
+}
+
+function section(num, title, ...children) {
+  return el("section", {},
+    el("h2", {}, el("span", { class: "num" }, String(num)), title),
+    ...children);
+}
+
+// 右欄成果展示面板：卡片外觀但標題不帶序號
+function panel(title, ...children) {
+  return el("div", { class: "panel" },
+    el("h2", {}, title),
+    ...children);
+}
+
+// 灰色佔位提示（生成前顯示於右欄成果區）
+function placeholder(text) {
+  return el("div", { class: "placeholder" }, text);
+}
+
+// -- 縮圖製作 區塊 1：關鍵字選擇（單選） --
+const chipsBox = el("div", { class: "kw-chips" },
+  "載入分群中...（第一次執行需要跑 embedding 與命名，可能要幾分鐘）");
+function renderChips() {
+  chipsBox.replaceChildren();
+  const list = keywordData[state.lang] || [];
+  if (!list.length) { chipsBox.append("（沒有關鍵字）"); return; }
+  for (const kw of list) {
+    const chip = el("button", {
+      class: "kw-chip" + (state.keyword === kw ? " selected" : ""),
+      onclick: () => { state.keyword = kw; renderChips(); },
+    }, kw);
+    chipsBox.append(chip);
+  }
+}
+const tabs = el("div", { class: "tabs" },
+  ...[["chinese", "中文"], ["english", "英文"]].map(([key, label]) =>
+    el("button", {
+      class: key === state.lang ? "active" : "",
+      onclick: (e) => {
+        state.lang = key; state.keyword = null;
+        tabs.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+        e.currentTarget.classList.add("active");
+        renderChips();
+      },
+    }, label)));
+const keywordSection = section(1, "關鍵字選擇",
+  el("p", { class: "hint" }, "點選一個想要的主題分類（單選）"), tabs, chipsBox);
+
+// -- 縮圖製作 區塊 2：縮圖風格選擇（只列出風格名稱） --
+const stylesBox = el("div", { class: "styles" },
+  ...["浮誇", "寫實", "卡通"].map((name) => {
+    const card = el("button", {
+      class: "style-card",
+      onclick: () => {
+        state.style = name;
+        stylesBox.querySelectorAll(".style-card")
+          .forEach(c => c.classList.remove("selected"));
+        card.classList.add("selected");
+      },
+    }, name);
+    return card;
+  }));
+const styleSection = section(2, "縮圖風格選擇", stylesBox);
+
+// -- 縮圖製作 區塊 3：拖曳圖片欄位（可留空） --
+const fileInput = el("input", { type: "file", accept: "image/*", style: "display:none" });
+const dropzone = el("div", { id: "dropzone" }, "拖曳圖片到這裡，或點擊選擇檔案（可留空）");
+function setFile(file) {
+  state.file = file || null;
+  dropzone.replaceChildren();
+  if (!file) {
+    dropzone.append("拖曳圖片到這裡，或點擊選擇檔案（可留空）");
+    return;
+  }
+  const img = el("img", { src: URL.createObjectURL(file) });
+  dropzone.append(img, el("p", { class: "hint" }, file.name + "（再點一下可更換，按住 Shift 點擊可移除）"));
+}
+dropzone.addEventListener("click", (e) => {
+  if (e.shiftKey && state.file) { setFile(null); return; }
+  fileInput.click();
+});
+fileInput.addEventListener("change", () => setFile(fileInput.files[0]));
+for (const ev of ["dragover", "dragleave", "drop"]) {
+  dropzone.addEventListener(ev, (e) => {
+    e.preventDefault();
+    dropzone.classList.toggle("dragover", ev === "dragover");
+    if (ev === "drop" && e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+  });
+}
+const imageSection = section(3, "上傳參考圖片", dropzone, fileInput);
+
+// -- 縮圖製作 區塊 4：其他要求（可留空） --
+const extraInput = el("textarea", { placeholder: "例如：加入「必看」兩個大字、背景放煙火...（可留空）" });
+const extraSection = section(4, "使用者的其他要求", extraInput);
+
+// -- 縮圖製作 區塊 5：產生縮圖（按鈕在左欄，成果顯示於右欄） --
+const resultBox = el("div", { id: "result" }, placeholder("產生的縮圖會顯示在這裡"));
+const generateBtn = el("button", { id: "generate-btn", onclick: generate }, "產生縮圖");
+const generateSection = section(5, "產生縮圖", generateBtn);
+
+async function generate() {
+  resultBox.replaceChildren();
+  if (!state.keyword) { resultBox.append(el("p", { class: "error" }, "請先在區塊 1 選擇關鍵字")); return; }
+  if (!state.style) { resultBox.append(el("p", { class: "error" }, "請先在區塊 2 選擇縮圖風格")); return; }
+
+  generateBtn.disabled = true;
+  generateBtn.textContent = "生成中，請稍候...";
+  const form = new FormData();
+  form.append("keyword", state.keyword);
+  form.append("style", state.style);
+  form.append("extra", extraInput.value.trim());
+  if (state.file) form.append("image", state.file);
+
+  try {
+    const resp = await fetch(VIDEO_API + "/api/generate", { method: "POST", body: form });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || resp.statusText);
+    state.thumbnail = data.image; // 留給「腳本&影片生成」頁傳給 Veo
+    resultBox.append(el("img", { src: data.image }));
+  } catch (err) {
+    resultBox.append(el("p", { class: "error" }, String(err.message || err)));
+  } finally {
+    generateBtn.disabled = false;
+    generateBtn.textContent = "產生縮圖";
+  }
+}
+
+// ---- 分頁 2：腳本&影片生成 ----
+// 區塊 1：影片主題與風格（直接延續縮圖製作頁選擇的關鍵字與風格）
+const topicBox = el("div", { class: "topic-box" }, "尚未選擇");
+const styleBox = el("div", { class: "topic-box" }, "尚未選擇");
+const topicSection = section(1, "影片主題與風格",
+  el("p", { class: "hint" }, "延續「縮圖製作」頁的關鍵字與風格選擇"),
+  topicBox, " ", styleBox);
+
+// 區塊 2：影片時長
+const durationsBox = el("div", { class: "styles" },
+  ...["8s", "16s", "24s", "32s"].map((d) => {
+    const btn = el("button", {
+      class: "style-card",
+      onclick: () => {
+        state.duration = d;
+        durationsBox.querySelectorAll(".style-card")
+          .forEach(c => c.classList.remove("selected"));
+        btn.classList.add("selected");
+      },
+    }, d);
+    return btn;
+  }));
+const durationSection = section(2, "影片時長", durationsBox);
+
+// 區塊 3：影片內容
+const videoContentInput = el("textarea",
+  { placeholder: "想要產出的影片內容，例如：貓咪和狗狗搶罐頭大戰..." });
+const contentSection = section(3, "影片內容", videoContentInput);
+
+// 區塊 4：腳本輸出（依 video/example/input_box.png 的輸入卡片設計）
+const scriptText = el("div", {
+  id: "script-text",
+  "data-placeholder": "按左下角大腦圖示由 AI 生成腳本，或按鉛筆圖示自行編輯...",
+});
+const scriptResult = el("div", { id: "script-result" }); // 錯誤訊息
+const videoResult = el("div", { id: "video-result" },    // 生成的短影音（顯示於右欄）
+  placeholder("生成的短影音會顯示在這裡"));
+
+// -- 右欄下方的時間進度條（生成影片時依經過時間前進） --
+const progressFill = el("div", { class: "gen-progress-fill" });
+const progressLabel = el("div", { class: "gen-progress-label" }, "尚未開始");
+const progressWrap = el("div", { class: "gen-progress-wrap", style: "display:none" },
+  el("div", { class: "gen-progress-bar" }, progressFill),
+  progressLabel);
+
+let progressTimer = null;
+let progressStart = 0;
+const EST_SECONDS = 240; // 估計影片生成需時（秒），僅用來讓進度條緩慢前進
+
+// 開始進度：依經過時間逼近估計時間，但最多到 95%，避免提早填滿
+function startProgress() {
+  if (progressTimer) clearInterval(progressTimer);
+  progressStart = Date.now();
+  progressWrap.style.display = "";
+  progressFill.style.width = "0%";
+  progressLabel.textContent = "已經過 0 秒";
+  progressTimer = setInterval(() => {
+    const elapsed = (Date.now() - progressStart) / 1000;
+    const pct = Math.min(95, (elapsed / EST_SECONDS) * 100);
+    progressFill.style.width = pct.toFixed(1) + "%";
+    progressLabel.textContent = "已經過 " + Math.floor(elapsed) + " 秒";
+  }, 1000);
+}
+
+// 完成：進度條填滿
+function finishProgress() {
+  if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
+  const elapsed = Math.floor((Date.now() - progressStart) / 1000);
+  progressFill.style.width = "100%";
+  progressLabel.textContent = "完成，共花費 " + elapsed + " 秒";
+}
+
+// 失敗：停止前進
+function failProgress() {
+  if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
+  progressLabel.textContent = "生成失敗，已停止";
+}
+
+// -- 自動上傳（auto_upload）：生成影片下方的切換開關 --
+const autoUploadToggle = el("input", { type: "checkbox", id: "auto-upload" });
+const autoUploadRow = el("label", { class: "auto-upload-row", for: "auto-upload" },
+  autoUploadToggle,
+  el("span", {}, "自動上傳：生成完成後直接加入影片上傳佇列（狀態：待上傳）"));
+
+/* auto_upload：把生成的短影音直接加入「影片上傳佇列」——
+   status：待上傳（pending）、title：影片內容、description 留空、
+   keywords：影片主題；之後由「上片時間設定」自動排程上傳。 */
+async function autoUpload(videoDataUrl) {
+  if (videos.length >= 12) { toast("影片佇列已滿（12 部），無法自動加入待上傳"); return; }
+  const title = videoContentInput.value.trim() || state.keyword || "AI 短影音";
+  const blob = await (await fetch(videoDataUrl)).blob();
+  const file = new File([blob], title + ".mp4", { type: "video/mp4" });
+  videos.unshift({
+    id: nextId++, title, desc: title, description: "",
+    keywords: state.keyword || "", comment: "", file,
+    time: nowLabel(), status: "pending", progress: 0,
+    publishTime: "", pub: false, pinned: false,
+  });
+  renderQueue();
+  const s = loadUploadSettings();
+  if (s && s.days.length) { toast("已自動加入待上傳佇列，開始自動排程"); autoSchedulePending(); }
+  else toast("已自動加入待上傳佇列；請點側邊欄 ⚙ 設定上片星期與時間後自動排程");
+}
+
+// 大腦／鉛筆改用黑白線條 icon（inline SVG，線條顏色跟隨按鈕文字色）
+const BRAIN_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/></svg>';
+const PENCIL_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>';
+
+const brainBtn = el("button",
+  { class: "tool-btn", title: "AI 生成腳本", onclick: generateScript });
+brainBtn.innerHTML = BRAIN_SVG;
+const pencilBtn = el("button",
+  { class: "tool-btn", title: "人工編輯腳本", onclick: toggleEdit });
+pencilBtn.innerHTML = PENCIL_SVG;
+const sendBtn = el("button",
+  { class: "send-btn", title: "確認腳本，傳送給 Gemini 生成短影音", onclick: sendToVideo }, "↑");
+
+const scriptCard = el("div", { class: "script-card" },
+  scriptText,
+  el("div", { class: "script-toolbar" },
+    el("div", { class: "left" }, brainBtn, pencilBtn),
+    sendBtn));
+const scriptSection = section(4, "腳本輸出", scriptCard, scriptResult);
+
+// ✏️：切換人工編輯模式（contenteditable）
+function toggleEdit() {
+  const editing = scriptText.getAttribute("contenteditable") === "true";
+  scriptText.setAttribute("contenteditable", editing ? "false" : "true");
+  pencilBtn.classList.toggle("active", !editing);
+  if (!editing) scriptText.focus();
+}
+
+function setBusy(busy) {
+  brainBtn.disabled = pencilBtn.disabled = sendBtn.disabled = busy;
+}
+
+// 🧠：AI 生成腳本（串流寫入卡片文字區）
+async function generateScript() {
+  scriptResult.replaceChildren();
+  if (!state.keyword) {
+    scriptResult.append(el("p", { class: "error" }, "請先到「縮圖製作」頁選擇關鍵字作為影片主題"));
+    return;
+  }
+  if (!state.style) {
+    scriptResult.append(el("p", { class: "error" }, "請先到「縮圖製作」頁選擇風格作為影片風格"));
+    return;
+  }
+  if (!state.duration) {
+    scriptResult.append(el("p", { class: "error" }, "請先選擇影片時長"));
+    return;
+  }
+  setBusy(true);
+  scriptText.textContent = "";
+  try {
+    const resp = await fetch(VIDEO_API + "/api/script", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        keyword: state.keyword,
+        style: state.style,
+        duration: state.duration,
+        content: videoContentInput.value.trim(),
+      }),
+    });
+    if (!resp.ok) {
+      const data = await resp.json();
+      throw new Error(data.error || resp.statusText);
+    }
+    // 後端以 NDJSON 串流回傳，逐行解析、即時更新卡片文字區
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop(); // 最後一段可能還不完整，留到下一輪
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const data = JSON.parse(line);
+        if (data.error) throw new Error(data.error);
+        if (data.script !== undefined) scriptText.textContent = data.script; // 累積內容直接覆蓋
+      }
+    }
+  } catch (err) {
+    scriptResult.append(el("p", { class: "error" }, String(err.message || err)));
+  } finally {
+    setBusy(false);
+  }
+}
+
+// ↑：腳本最後確認，把最終腳本當作 prompt 傳給 Gemini 生成短影音
+async function sendToVideo() {
+  videoResult.replaceChildren();
+  const script = scriptText.textContent.trim();
+  if (!script) {
+    videoResult.append(el("p", { class: "error" }, "腳本是空的，請先用大腦圖示生成或鉛筆圖示編輯腳本"));
+    return;
+  }
+  // 送出前先關閉編輯模式
+  scriptText.setAttribute("contenteditable", "false");
+  pencilBtn.classList.remove("active");
+  setBusy(true);
+  videoResult.append(el("p", { class: "hint" }, "短影音生成中（需要數分鐘，請耐心等候）..."));
+  startProgress();
+  try {
+    const resp = await fetch(VIDEO_API + "/api/video", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // 一併帶上縮圖製作頁生成的縮圖（沒有就純文字生成）
+      body: JSON.stringify({ script, image: state.thumbnail || "" }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.error || resp.statusText);
+    videoResult.replaceChildren(el("video", { src: data.video, controls: "" }));
+    finishProgress();
+    // auto_upload 啟動時：影片直接加入影片上傳佇列（待上傳）
+    if (autoUploadToggle.checked) await autoUpload(data.video);
+  } catch (err) {
+    videoResult.replaceChildren(el("p", { class: "error" }, String(err.message || err)));
+    failProgress();
+  } finally {
+    setBusy(false);
+  }
+}
+
+// -- 組裝頁面（兩個可切換的分頁，皆為左右雙欄） --
+// 縮圖製作：左欄放全部設定，右欄呈現最終縮圖
+const thumbPage = el("div", { class: "two-col" },
+  el("div", { class: "col-left" },
+    keywordSection, styleSection, imageSection, extraSection, generateSection),
+  el("div", { class: "col-right" },
+    panel("最終縮圖", resultBox)));
+// 腳本&影片生成：左欄放全部設定，右欄呈現最終短影音、時間進度條與自動上傳開關
+const videoPage = el("div", { class: "two-col", style: "display:none" },
+  el("div", { class: "col-left" },
+    topicSection, durationSection, contentSection, scriptSection),
+  el("div", { class: "col-right" },
+    panel("最終短影音", videoResult, progressWrap, autoUploadRow)));
+
+const pageTabs = el("div", { class: "gen-page-tabs" },
+  el("button", { class: "active", onclick: () => showGenPage("thumb") }, "縮圖製作"),
+  el("button", { onclick: () => showGenPage("video") }, "腳本&影片生成"));
+
+function showGenPage(name) {
+  thumbPage.style.display = name === "thumb" ? "" : "none";
+  videoPage.style.display = name === "video" ? "" : "none";
+  const [thumbTab, videoTab] = pageTabs.querySelectorAll("button");
+  thumbTab.classList.toggle("active", name === "thumb");
+  videoTab.classList.toggle("active", name === "video");
+  // 影片主題與風格直接延續縮圖製作頁的選擇
+  topicBox.textContent =
+    "主題：" + (state.keyword || "尚未選擇（請先到「縮圖製作」頁點選關鍵字）");
+  styleBox.textContent =
+    "風格：" + (state.style || "尚未選擇（請先到「縮圖製作」頁點選風格）");
+}
+
+genApp.append(pageTabs, thumbPage, videoPage);
+
+// 後端狀態 pill＋載入關鍵字（video 的 router 沒有 /api/health，
+// 以 /api/keywords 是否連得上作為連線判斷）
+function setGenPill(on) {
+  const pill = $("pill-gen");
+  pill.classList.toggle("online", on);
+  pill.querySelector(".pill-text").textContent =
+    on ? "後端已連線（server.py）" : "後端未連線（請執行 server.py）";
+}
+
+async function loadKeywords() {
+  let r;
+  try {
+    r = await fetch(VIDEO_API + "/api/keywords");
+  } catch {
+    setGenPill(false);
+    chipsBox.replaceChildren(
+      el("p", { class: "error" }, "無法連線後端（port 8700），請執行 server.py"));
+    return;
+  }
+  setGenPill(true);
+  const d = await r.json();
+  if (!r.ok) {
+    chipsBox.replaceChildren(el("p", { class: "error" }, "關鍵字載入失敗：" + (d.error || r.statusText)));
+    return;
+  }
+  keywordData = d;
+  renderChips();
+}
+loadKeywords();
+})();
+</script>
+</body>
+</html>
